@@ -1,156 +1,109 @@
 import promptSync from "prompt-sync";
 const prompt = promptSync();
 
-// Función asincrona para manejar la entrada de datos de las solicitudes
+// 1. FUNCIONES DE PROCESAMIENTO ASÍNCRONO
+// Propósito: mostrar tres estilos de asincronía:
+// - Callback, Promise y async/await (delegando en la promesa)
+
+const atenderCallback = (s, cb) => setTimeout(() => cb(null, `ID ${s.id} procesado (Callback)`), 1000);
+const atenderPromesa = (s) => new Promise(res => setTimeout(() => res(`ID ${s.id} procesado (Promesa)`), 1000));
+const atenderAsync = async (s) => await atenderPromesa(s);
+
+
+// 2. FUNCIÓN DE CLASIFICACIÓN (Para no mutar el objeto)
+// Devuelve categoría según prioridad (Alta/Media/Baja)
+
+const obtenerCategoria = (p) => p >= 4 ? "Alta" : p >= 2 ? "Media" : "Baja";
+
 async function datos() {
-    // Arreglo donde se almacenan las solicitudes validas
-    let solicitudes = []
-    let solicitudesInvalidas = []
-    // Bucle infinito para permitir ingresar multiples solicitudes
+    // Arrays para solicitudes válidas e inválidas
+    let solicitudes = [];
+    let solicitudesInvalidas = [];
+
+    // Bucle para permitir entrada repetida
     while (true) {
         try {
-            // Validación del Id: debe ser un numero entero no negativo
+            // Leer y validar Id numérico
             let id = parseInt(prompt("Ingrese el Id: "));
-            if (isNaN(id) || id == null || id < 0){
-                throw new Error("El Id ingresado no es valido");
+            if (isNaN(id) || id < 0) throw new Error("El Id no es válido");
+
+            // Leer y validar usuario (no vacío)
+            let usuario = prompt("Ingrese el usuario: ");
+            if (!usuario || usuario.trim() === "") throw new Error("Usuario no válido");
+
+            // VALIDACIÓN DE TIPO: mostrar opciones y mapear selección
+            console.log("1. hardware | 2. software | 3. red");
+            let tipoSel = parseInt(prompt("Seleccione tipo: "));
+            let tipos = {1: "hardware", 2: "software", 3: "red"};
+            if (!tipos[tipoSel]) throw new Error("Tipo de solicitud no válido");
+            let tipo = tipos[tipoSel];
+
+            // PRIORIDAD: número entre 1 y 5
+            let prioridad = parseInt(prompt("Prioridad (1-5): "));
+            if (isNaN(prioridad) || prioridad < 1 || prioridad > 5) throw new Error("Prioridad no válida");
+
+            // Descripción: mínima longitud para ser válida
+            let descripcion = prompt("Descripción (+10 carac.): ");
+            if (descripcion.trim().length < 10) throw new Error("Descripción muy corta");
+
+            // Autorización: 's' para activa, cualquier otra lectura se considera no autorizada
+            let activoSeleccion = prompt("¿Autorizar? (s/n): ").toLowerCase();
+            let activo = activoSeleccion === "s";
+
+            // CREACIÓN INMUTABLE de la solicitud
+            const solicitudIndividual = Object.freeze({ 
+                id, usuario, tipo, prioridad, descripcion, activo 
+            });
+
+            // Almacenar según si está autorizada o no (válida vs inválida)
+            if (activo) {
+                solicitudes.push(solicitudIndividual);
+            } else {
+                solicitudesInvalidas.push(solicitudIndividual);
             }
-            // Lectura del usuario (se espera que sea texto o se valida que no sea vacio)
-            let usuario = prompt("Ingrese el usuario: ")
-            if (usuario == null || usuario.trim() === "") {
-                throw new Error("El usuario ingresado no es valido");
-            }
-            console.log("***********tipos de solicitud****************");
-            console.log("1. Hardware");
-            console.log("2. Software");
-            console.log("3. Red");
-            let tipoSeleccion = parseInt(prompt("Seleccione el tipo de solicitud: "))
-            // Se valida que la seleccion este entre las opciones permitidas
-            if (tipoSeleccion != 1 && tipoSeleccion != 2 && tipoSeleccion != 3){
-                throw new Error("El tipo de solicitud no es valido");
-            }
-            let tipo
-            switch (tipoSeleccion) {
-                case 1:
-                    tipo = "Hardware"
-                    break;
-                case 2:
-                    tipo = "Software"
-                    break;
-                case 3:
-                    tipo = "Red"
-                    break;
-            }
-            // Nivel de prioridad: 1 a 5, donde 5 es la mas alta
-            let prioridad = parseInt(prompt("Ingrese un nivel de prioridad (5 = mas alta, 1 = mas baja): "))
-            if (isNaN(prioridad) || prioridad < 1 || prioridad > 5){
-                throw new Error("El nivel de prioridad seleccionado no es valido");
-            }
-            switch (prioridad) {
-                case 1:
-                    prioridad = "Baja"
-                    break;
-                case 2:
-                    prioridad = "Media-Baja"
-                    break;
-                case 3:
-                    prioridad = "Media"
-                    break;
-                case 4:
-                    prioridad = "Media-Alta"
-                    break;
-                case 5:
-                    prioridad = "Alta"
-                    break;
-            }
-            // Descripcion: se exige longitud minima 
-            let descripcion = prompt("Ingrese una descripcion de mas de 10 caracteres: ")
-            // se evita aceptar texto muy corto o solo numeros
-            if (descripcion == null || descripcion.trim().length < 10 || !isNaN(descripcion)){
-                throw new Error("La descripcion ingresada no cumple con los requerimientos");
-            }
-            // Opcion para autorizar la transaccion; solo se guardan solicitudes autorizadas
-            let activo = true
-            let activoSeleccion = prompt("Desea autorizar la transaccion (s/n):")
-            if (activoSeleccion.toLowerCase() != "s" && activoSeleccion.toLowerCase() != "n"){
-                throw new Error("La opcion seleccionada no es valida")
-            }else if (activoSeleccion.toLowerCase() == "n") {
-                activo = false
-            }
-            let solicitudIndividual
-            if (activo == true){
-                //se agregan los datos dentro de un objeto
-                solicitudIndividual = {
-                    id : id,
-                    usuario : usuario,
-                    tipo : tipo,
-                    prioridad : prioridad,
-                    descripcion : descripcion,
-                    activo : activo
-                }
-                // Freeze para que no se le puea cambiar ni propiedades ni valores
-                Object.freeze(solicitudIndividual);
-                // Se agrega la solicitud autorizada a la lista
-                solicitudes.push(solicitudIndividual)
-            }else{
-                //se agregan los datos dentro de un objeto
-                solicitudIndividual = {
-                    id : id,
-                    usuario : usuario,
-                    tipo : tipo,
-                    prioridad : prioridad,
-                    descripcion : descripcion,
-                    activo : activo
-                }
-                //Freeze para que no se le puea cambiar ni propiedades ni valores
-                Object.freeze(solicitudIndividual);
-                // se agrega la solicitud no autorizada a la lista de invalidas
-                solicitudesInvalidas.push(solicitudIndividual)
-            }
-            
+
         } catch (error) {
-            // Se captura y muestra cualquier error de validacion sin terminar el bucle
-            console.error("Error encontrado: " + error.message)
+            // Mostrar error controlado y continuar con la siguiente iteración
+            console.error("Error encontrado: " + error.message);
         }
-        let continuar = prompt("Desea ingresar otra transaccion? (s/n): ");
-        if (continuar.toLowerCase() !== 's') {
-            break;
-        }else{
-            console.clear();
-        }
+
+        // Pregunta para continuar; si no, salir del bucle
+        if (prompt("¿Desea ingresar otra? (s/n): ").toLowerCase() !== 's') break;
+        console.clear();
     }
-    // Retornamos las listas (autorizadas e inválidas)
-    return { solicitudes, solicitudesInvalidas }
+    return { solicitudes, solicitudesInvalidas };
 }
 
+// funcion anonima autoejecutable para ejecutar el flujo principal y procesar solicitudes válidas
 (async () => {
-    const { solicitudes: autorizadas, solicitudesInvalidas: invalidas } = await datos()
-    console.log("Solicitudes autorizadas:", autorizadas);
-    console.log("Solicitudes no autorizadas:", invalidas);
-    
-    // Recorremos y mostramos cada solicitud valida
-    for (const solicitud of autorizadas) {
-        console.log(`id : ${solicitud.id},
-                    usuario : ${solicitud.usuario},
-                    tipo : ${solicitud.tipo},
-                    prioridad : ${solicitud.prioridad},
-                    descripcion : ${solicitud.descripcion},
-                    activo : ${solicitud.activo}`);
+    const { solicitudes: autorizadas, solicitudesInvalidas: invalidas } = await datos();
+
+    console.log("\n--- PROCESANDO SOLICITUDES VÁLIDAS ---");
+    // RECORRIDO CON ASINCRONÍA TRIPLE: callback, promesa y async/await
+    for (let i = 0; i < autorizadas.length; i++) {
+        const s = autorizadas[i];
+        const cat = obtenerCategoria(s.prioridad); // Obtener categoría sin mutar
+
+        if (i % 3 === 0) {
+            // Ejemplo con callback: el resultado se imprime desde el callback
+            atenderCallback(s, (err, msg) => console.log(`[OK] ${msg} | Prioridad: ${cat}`));
+        } else if (i % 3 === 1) {
+            // Ejemplo con promesa y await
+            console.log(`[OK] ${await atenderPromesa(s)} | Prioridad: ${cat}`);
+        } else {
+            // Ejemplo con función async que usa await internamente
+            console.log(`[OK] ${await atenderAsync(s)} | Prioridad: ${cat}`);
+        }
     }
 
-    // Recorremos y mostramos cada solicitud no autorizada
-    for (const solicitud of invalidas) {
-        console.log(`(NO AUTORIZADA) id : ${solicitud.id},
-                    usuario : ${solicitud.usuario},
-                    tipo : ${solicitud.tipo},
-                    prioridad : ${solicitud.prioridad},
-                    descripcion : ${solicitud.descripcion},
-                    activo : ${solicitud.activo}`);
+    // RESUMEN FINAL: conteos y listado de inválidas si existen
+    console.log("\n======= RESUMEN DE GESTIÓN =======");
+    console.log(`Total Recibidas: ${autorizadas.length + invalidas.length}`);
+    console.log(`Total Válidas: ${autorizadas.length}`);
+    console.log(`Total Inválidas: ${invalidas.length}`);
+    
+    if (invalidas.length > 0) {
+        console.log("Listado de Inválidas (Rechazadas):");
+        invalidas.forEach(inv => console.log(`- ID: ${inv.id} | Usuario: ${inv.usuario}`));
     }
-    let totalRecibidas = autorizadas.length + invalidas.length
-    let totalValidas = autorizadas.length
-    let totalInvalidas = invalidas.length
-    console.log("Resumen de solicitudes:");
-    console.log(`Total recibidas: ${totalRecibidas}`);
-    console.log(`Total válidas: ${totalValidas}`);
-    console.log(`Total inválidas: ${totalInvalidas}`);
-})()
+})();
